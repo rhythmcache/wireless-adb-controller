@@ -1,6 +1,6 @@
 SKIPMOUNT=false
 PROPFILE=false
-POSTFSDATA=true
+POSTFSDATA=false
 LATESTARTSERVICE=false
 REPLACE_EXAMPLE="
 /system/app/Youtube

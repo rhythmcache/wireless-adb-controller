@@ -1,4 +1,5 @@
 #!/system/bin/sh
+# wadbd by @rhythmcache
 
 GREEN='\033[0;32m'
 PINK='\033[1;35m'

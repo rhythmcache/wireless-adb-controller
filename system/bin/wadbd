@@ -46,7 +46,7 @@ show_default_gateway() {
     # Check if wireless ADB is enabled or disabled
     if [ "$port" -eq -1 ]; then
         echo -e "${PINK}Wireless ADB is disabled.${NC}"
-        return
+        return  # Exit the function early if wireless ADB is disabled
     fi
 
     # Fetch the local IP addresses (excluding 127.0.0.1)
@@ -55,7 +55,6 @@ show_default_gateway() {
     if [ -n "$ips" ]; then
         echo -e "${PINK}The following commands can be used to connect wirelessly:${NC}"
         for ip in $ips; do
-            # Always show the port, even if it's the default 5555
             echo -e "${GREEN}  adb connect $ip:$port${NC}"
         done
     else
@@ -74,9 +73,10 @@ disable_wireless_adb() {
 check_wireless_adb_status() {
     # Check current wireless ADB status
     port=$(getprop service.adb.tcp.port)
+    
     if [ "$port" != "-1" ] && [ -n "$port" ]; then
         echo -e "${GREEN}Wireless ADB is enabled on port $port.${NC}"
-        show_default_gateway
+        show_default_gateway 
     else
         echo -e "${PINK}Wireless ADB is disabled.${NC}"
     fi
@@ -85,8 +85,11 @@ check_wireless_adb_status() {
     module_path="/data/adb/modules/wadbd/service.sh"
     if [ -f "$module_path" ]; then
         boot_port=$(awk '/setprop service.adb.tcp.port/ {print $3}' "$module_path")
-        echo -e "${GREEN}Wireless ADB on boot is enabled on port $boot_port.${NC}"
-        show_default_gateway
+        if [ -n "$boot_port" ]; then
+            echo -e "${GREEN}Wireless ADB on boot is enabled on port $boot_port.${NC}"
+        else
+            echo -e "${PINK}Wireless ADB on boot is not set correctly.${NC}"
+        fi
     else
         echo -e "${PINK}Wireless ADB on boot is disabled.${NC}"
     fi

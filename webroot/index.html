@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wireless ADB Manager</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            padding: 20px;
+            background-color: #1e1e2f;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #4caf50;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 500px;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .card {
+            background-color: #1e1e2f;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: #4caf50;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            background-color: #2e2e3e;
+            color: #ffffff;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 5px;
+            flex: 1 1 45%;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .output {
+            background-color: #1e1e2f;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow: auto;
+            height: 150px;
+        }
+
+        footer {
+            width: 100%;
+            background-color: #1e1e2f;
+            padding: 20px 0;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        footer img {
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        footer img:hover {
+            opacity: 0.8;
+        }
+
+        .info-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #2e2e3e;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            color: #ffffff;
+        }
+
+        .info-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #4caf50;
+        }
+
+        .info-section p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Wireless ADB Manager</h1>
+    </header>
+    <main class="container">
+        <div class="card">
+            <h2>Set Port</h2>
+            <div class="input-group">
+                <label for="port">Enter Wireless ADB Port (default: 5555)</label>
+                <input type="number" id="port" placeholder="5555" min="1" max="65535">
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Actions</h2>
+            <div class="button-container">
+                <button onclick="executeCommand('on')">Enable Wireless ADB</button>
+                <button onclick="executeCommand('off')">Disable Wireless ADB</button>
+                <button onclick="executeCommand('status')">Show Wireless ADB Status</button>
+                <button onclick="executeCommand('enable-on-boot')">Enable Wireless ADB on Boot</button>
+                <button onclick="executeCommand('disable-on-boot')">Disable Wireless ADB on Boot</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Output</h2>
+            <div class="output" id="output">Output will be displayed here...</div>
+        </div>
+
+        <div class="info-section" id="device-info">
+            <h3>Device Information</h3>
+            <p id="device-codename">Device Codename: Loading...</p>
+            <p id="device-name">Device Name: Loading...</p>
+            <p id="android-version">Android Version: Loading...</p>
+            <p id="build-number">Build Number: Loading...</p>
+            <p id="kernel-version">Kernel Version: Loading...</p>
+            <p id="usb-debugging">USB Debugging: Loading...</p>
+        </div>
+    </main>
+    <footer>
+        <img src="github.png" alt="GitHub" onclick="openLink('https://github.com/rhythmcache')">
+        <img src="telegram.png" alt="Telegram" onclick="openLink('https://ximistuffschat.t.me')">
+    </footer>
+
+    <script>
+        let callbackCounter = 0;
+
+        function getUniqueCallbackName(base) {
+            return `${base}_callback_${Date.now()}_${callbackCounter++}`;
+        }
+
+        function stripAnsiCodes(text) {
+            return text.replace(
+                /[\u001b\u009b][[()\]#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+                ''
+            );
+        }
+
+        async function exec(command, options = {}) {
+            return new Promise((resolve, reject) => {
+                const callbackName = getUniqueCallbackName('exec');
+                window[callbackName] = (errno, stdout, stderr) => {
+                    resolve({ errno, stdout, stderr });
+                    delete window[callbackName];
+                };
+
+                try {
+                    ksu.exec(command, JSON.stringify(options), callbackName);
+                } catch (error) {
+                    reject(error);
+                    delete window[callbackName];
+                }
+            });
+        }
+
+        async function executeCommand(action) {
+            const outputDiv = document.getElementById('output');
+            const port = document.getElementById('port').value || '5555';
+            outputDiv.textContent = 'Executing... Please wait.';
+
+            try {
+                let command = '';
+                if (action === 'on') {
+                    command = `wadbd on ${port}`;
+                } else if (action === 'enable-on-boot') {
+                    command = `wadbd enable-on-boot ${port}`;
+                } else if (action === 'off') {
+                    command = 'wadbd off';
+                } else if (action === 'disable-on-boot') {
+                    command = 'wadbd disable-on-boot';
+                } else if (action === 'status') {
+                    command = 'wadbd status';
+                }
+
+                const { stdout, stderr } = await exec(command);
+
+                outputDiv.textContent = stripAnsiCodes(stdout || stderr || 'No output.');
+            } catch (error) {
+                outputDiv.textContent = 'Error: Could not execute the command.';
+            }
+        }
+
+        function openLink(url) {
+            exec(`am start -a android.intent.action.VIEW -d "${url}"`);
+        }
+
+        async function fetchDeviceInfo() {
+            try {
+                const { stdout: deviceCodename } = await exec('getprop ro.product.device');
+                const { stdout: deviceName } = await exec('getprop ro.product.model');
+                const { stdout: androidVersion } = await exec('getprop ro.build.version.release');
+                const { stdout: buildNumber } = await exec('getprop ro.build.display.id');
+                const { stdout: kernelVersion } = await exec('uname -r');
+                const { stdout: usbDebugging } = await exec('settings get global adb_enabled');
+
+                document.getElementById('device-codename').textContent = `Device Codename: ${deviceCodename.trim()}`;
+                document.getElementById('device-name').textContent = `Device Name: ${deviceName.trim()}`;
+                document.getElementById('android-version').textContent = `Android Version: ${androidVersion.trim()}`;
+                document.getElementById('build-number').textContent = `Build Number: ${buildNumber.trim()}`;
+                document.getElementById('kernel-version').textContent = `Kernel Version: ${kernelVersion.trim()}`;
+                document.getElementById('usb-debugging').textContent = `USB Debugging: ${usbDebugging.trim() === '1' ? 'Enabled' : 'Disabled'}`;
+            } catch (error) {
+                console.error('Failed to fetch device info:', error);
+            }
+        }
+
+        window.onload = fetchDeviceInfo;
+    </script>
+</body>
+</html>

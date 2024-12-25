@@ -1,6 +1,6 @@
 id=wadbd
 name=WirelessADBD-Controller
-version=2.0
-versionCode=2
+version=4
+versionCode=4
 author=rhythmcache.t.me
 description=Control Wireless ADB Status - Usage: wadbd [on <port>|off|status|enable-on-boot <port>|disable-on-boot]

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Wireless ADB Manager</title>
     <style>
         body {
@@ -15,6 +15,8 @@
             flex-direction: column;
             align-items: center;
             height: 100vh;
+            width: 100%;
+            overflow-y: auto;
         }
 
         header {
@@ -23,12 +25,16 @@
             background-color: #1e1e2f;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         header h1 {
             margin: 0;
             font-size: 22px;
             color: #4caf50;
+            user-select: none;
         }
 
         .container {
@@ -39,6 +45,7 @@
             flex-direction: column;
             gap: 20px;
             flex: 1;
+            padding-bottom: 80px;
         }
 
         .card {
@@ -46,12 +53,14 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transform: translateZ(0);
         }
 
         .card h2 {
             font-size: 18px;
             color: #4caf50;
             margin-bottom: 15px;
+            user-select: none;
         }
 
         .input-group {
@@ -62,16 +71,18 @@
             display: block;
             font-size: 14px;
             margin-bottom: 5px;
+            user-select: none;
         }
 
         .input-group input {
             width: 100%;
             padding: 10px;
-            font-size: 14px;
+            font-size: 16px;
             border: none;
             border-radius: 5px;
             background-color: #2e2e3e;
             color: #ffffff;
+            box-sizing: border-box;
         }
 
         .button-container {
@@ -89,10 +100,13 @@
             cursor: pointer;
             border-radius: 5px;
             flex: 1 1 45%;
+            touch-action: manipulation;
+            user-select: none;
         }
 
-        button:hover {
+        button:active {
             background-color: #45a049;
+            transform: translateY(1px);
         }
 
         .output {
@@ -115,16 +129,16 @@
             justify-content: center;
             gap: 20px;
             box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.2);
+            position: fixed;
+            bottom: 0;
+            z-index: 100;
         }
 
         footer img {
             width: 40px;
             height: 40px;
             cursor: pointer;
-        }
-
-        footer img:hover {
-            opacity: 0.8;
+            user-select: none;
         }
 
         .info-section {
@@ -134,12 +148,14 @@
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             color: #ffffff;
+            transform: translateZ(0);
         }
 
         .info-section h3 {
             margin: 0 0 10px 0;
             font-size: 16px;
             color: #4caf50;
+            user-select: none;
         }
 
         .info-section p {
@@ -243,7 +259,6 @@
                 }
 
                 const { stdout, stderr } = await exec(command);
-
                 outputDiv.textContent = stripAnsiCodes(stdout || stderr || 'No output.');
             } catch (error) {
                 outputDiv.textContent = 'Error: Could not execute the command.';

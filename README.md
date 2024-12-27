@@ -52,7 +52,7 @@ Note: If you don't specify a port, it will use the default port 5555.
 ### `wadbd disable-on-boot`
 - Disables wirelss adbd on boot
 
-#### `wadbd --import-key <path to adbkey.pub>
+#### `wadbd --import-key <path to adbkey.pub>`
 - If your device is not prompting to authorize ADB for some reason, you can use this to directly import ADB keys to authorize your device.
 - This might not work on all devices.
 

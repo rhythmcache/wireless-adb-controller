@@ -186,6 +186,12 @@ backup_adb_keys() {
         echo -e "${PINK}Error: No backup path provided.${NC}"
         exit 1
     fi
+
+if [ ! -f /data/misc/adb/adb_keys ]; then
+        echo -e "${PINK}Error: adb_keys file does not exist.${NC}"
+        exit 1
+    fi
+
     if [ -d "$backup_path" ]; then
         backup_path="$backup_path/keys_backup"
     fi

@@ -1,5 +1,7 @@
 # Wireless ADB Controller  
-A simple Magisk module to control the Wireless ADB daemon.
+A simple Magisk module to control wireless ADB daemon. It allows you to start wireless ADBD in current session, start automatically on boot, set custom ports, and manage ADB keys (backup/restore/import). It supports KernelSU WebUI as well.
+
+![Last Updated](https://img.shields.io/badge/Updated-2024--12--27-blue)
 
 ## How to Use  
 1. Install the module via **Magisk**, **KernelSU**, or **Apatch**.  
@@ -17,7 +19,9 @@ Commands:
   wadbd status                - Show the status of wireless ADB.
   wadbd enable-on-boot <port> - Enable wireless ADB on boot with the specified port.
   wadbd disable-on-boot       - Disable wireless ADB on boot.
-wadbd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt.
+  wadbd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt.
+wadbd --backup <path>         - Backup authorized adb_keys     wadbd --restore <path>        -restore backed up adb_keys
+wadbd --clear-keys            - Revokes all authorized Keys
 
 Note: If you don't specify a port, it will use the default port 5555.
 ```
@@ -52,10 +56,23 @@ Note: If you don't specify a port, it will use the default port 5555.
 ### `wadbd disable-on-boot`
 - Disables wirelss adbd on boot
 
-#### `wadbd --import-key <path to adbkey.pub>`
-- If your device is not prompting to authorize ADB for some reason, you can use this to directly import ADB keys to authorize your device.
-- This might not work on all devices.
 
+
+# Experimental 👩‍🔬
+⚠️ These Features/Commands are Experimental and are not guaranteed to work on all devices. Use them at your own risk. These features are not available in WebUI and will `never` be added.
+
+#### `wadbd --import-keys <path-to-adbkey.pub>`
+- For some reason , If your device is not prompting to authorize ADB, you can use this command to directly import keys.
+- The adbkey.pub file is typically located at:
+  - Windows: `C:\Users\<username>\.android\adbkey.pub`
+  - Linux: `/home/<username>/.android/adbkey.pub`
+  - Termux: `/data/data/com.termux/files/home/.android/adbkey.pub`
+
+#### `wadbd --backup <path>` / `wadbd --restore <path>`
+- Used to backup or restore authorized keys
+
+#### `wadbd --clear-keys`
+- Revokes all authorized keys
 ---
 ## License
 
@@ -73,4 +90,3 @@ Note: If you don't specify a port, it will use the default port 5555.
     along with this script.  If not, see <http://www.gnu.org/licenses/>.
     
 [![Telegram](https://img.shields.io/badge/Telegram-Join%20Chat-blue?style=flat-square&logo=telegram)](https://t.me/ximistuffschat)
-![Downloads](https://img.shields.io/github/downloads/Magisk-Modules-Alt-Repo/wadbd/total.svg)

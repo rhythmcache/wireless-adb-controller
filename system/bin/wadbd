@@ -9,12 +9,15 @@ usage() {
     local cmd=$(basename "$0")
     echo -e "${PINK}Usage: $cmd [on <port>|off|status|enable-on-boot <port>|disable-on-boot]${NC}"
     echo -e "\nCommands:"
-    echo -e "  $cmd on <port>              - Enable wireless ADB on the specified port."
+    echo -e "  $cmd on <port>             - Enable wireless ADB on the specified port."
     echo -e "  $cmd off                   - Disable wireless ADB."
     echo -e "  $cmd status                - Show the status of wireless ADB."
     echo -e "  $cmd enable-on-boot <port> - Enable wireless ADB on boot with the specified port."
     echo -e "  $cmd disable-on-boot       - Disable wireless ADB on boot."
     echo -e "  $cmd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt."
+    echo -e "  $cmd --backup <path>       - Backup authorized adb_keys "
+    echo -e "  $cmd --restore <path>      -restore backed up adb_keys "
+    echo -e "  $cmd --clear-keys          - Revokes all authorized Keys "
     echo -e "\nNote: If you don't specify a port, it will use the default port 5555."
     exit 1
 }
@@ -63,8 +66,6 @@ show_default_gateway() {
         echo -e "${PINK}No usable IP addresses found. Ensure your device is connected to a network.${NC}"
     fi
 }
-
-
 disable_wireless_adb() {
     setprop service.adb.tcp.port -1
     stop adbd
@@ -128,6 +129,12 @@ disable_on_boot() {
         echo -e "${PINK}Wireless ADB on boot is already disabled.${NC}"
     fi
 }
+####
+remove_keys(){
+    rm -f /data/misc/adb/adb_keys
+    rm -f /data/misc/adb/adb_temp_keys.xml
+    echo -e "${PINK}ADB keys cleared successfully.${NC}"
+}
 ###
 validate_adbkey_pub() {
     local key_file="$1"
@@ -171,10 +178,44 @@ else
 fi
 }
 
-###
+SIGNATURE=$(echo "ADB_KEYS_BACKUP" | sha256sum | cut -d' ' -f1)
 
+backup_adb_keys() {
+    local backup_path=$1
+    if [ -z "$backup_path" ]; then
+        echo -e "${PINK}Error: No backup path provided.${NC}"
+        exit 1
+    fi
+    if [ -d "$backup_path" ]; then
+        backup_path="$backup_path/keys_backup"
+    fi
+    echo -n "$SIGNATURE" > "$backup_path"
+    cat /data/misc/adb/adb_keys >> "$backup_path"
+    echo -e "${GREEN}ADB keys backed up to $backup_path.${NC}"
+}
+
+
+restore_adb_keys() {
+    local backup_path=$1
+    if [ -z "$backup_path" ]; then
+        echo -e "${PINK}Error: No backup file provided.${NC}"
+        exit 1
+    fi
+    if [ ! -f "$backup_path" ]; then
+        echo -e "${PINK}Error: Backup file not found at $backup_path.${NC}"
+        exit 1
+    fi
+    local file_signature=$(head -c 64 "$backup_path")
+    if [ "$file_signature" != "$SIGNATURE" ]; then
+        echo -e "${PINK}Error: Invalid signature. Restoration aborted.${NC}"
+        exit 1
+    fi
+    tail -c +65 "$backup_path" > /data/misc/adb/adb_keys
+    chmod 640 /data/misc/adb/adb_keys
+    chown 1000:2000 /data/misc/adb/adb_keys
+    echo -e "${GREEN}ADB keys restored successfully from $backup_path.${NC}"
+}
 check_root
-
 if [ "$#" -lt 1 ]; then
     usage
 fi
@@ -201,6 +242,15 @@ case "$1" in
         ;;
     disable-on-boot)
         disable_on_boot
+        ;;
+        --clear-keys)
+        remove_keys
+        ;;
+        --backup)
+        backup_adb_keys "$2"
+        ;;
+    --restore)
+        restore_adb_keys "$2"
         ;;
     *)
         usage

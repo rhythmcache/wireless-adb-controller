@@ -1,432 +1,244 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Wireless ADB Manager</title>
-    <style>
-        :root {
-            /* Dark theme (default) */
-            --bg-primary: #121212;
-            --bg-secondary: #1e1e2f;
-            --bg-tertiary: #2e2e3e;
-            --text-primary: #ffffff;
-            --accent-color: #4caf50;
-            --button-color: #4caf50;
-            --button-hover: #45a049;
-        }
-        
-        [data-theme="amoled"] {
-    --bg-primary: #000000;           
-    --bg-secondary: #121212;          
-    --bg-tertiary: #1c1c1c;           
-    --text-primary: #ffffff;         
-    --accent-color: #3cb371;         
-    --button-color: #2e8b57;         
-    --button-hover: #228b22;          
+#!/system/bin/sh
+# wadbd by @rhythmcache
+
+GREEN='\033[0;32m'
+PINK='\033[1;35m'
+NC='\033[0m'
+
+usage() {
+    local cmd=$(basename "$0")
+    echo -e "${PINK}Usage: $cmd [on <port>|off|status|enable-on-boot <port>|disable-on-boot]${NC}"
+    echo -e "\nCommands:"
+    echo -e "  $cmd on <port>              - Enable wireless ADB on the specified port."
+    echo -e "  $cmd off                   - Disable wireless ADB."
+    echo -e "  $cmd status                - Show the status of wireless ADB."
+    echo -e "  $cmd enable-on-boot <port> - Enable wireless ADB on boot with the specified port."
+    echo -e "  $cmd disable-on-boot       - Disable wireless ADB on boot."
+    echo -e "  $cmd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt."
+    echo -e "  $cmd --backup <path>        - Backup authorized adb_keys "
+    echo -e "  $cmd --restore <path>        -restore backed up adb_keys "
+    echo -e "\nNote: If you don't specify a port, it will use the default port 5555."
+    exit 1
 }
 
-        [data-theme="light"] {
-            --bg-primary: #f5f5f5;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f0f0f0;
-            --text-primary: #333333;
-            --accent-color: #4caf50;
-            --button-color: #4caf50;
-            --button-hover: #45a049;
-        }
-
-        [data-theme="pink"] {
-            --bg-primary: #fce4ec;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f8bbd0;
-            --text-primary: #880e4f;
-            --accent-color: #ec407a;
-            --button-color: #ec407a;
-            --button-hover: #d81b60;
-        }
-        
-        [data-theme="blackpink"] {
-    --bg-primary: #000000;
-    --bg-secondary: #1a1a1a;
-    --bg-tertiary: #242424;
-    --text-primary: #ff9ecd;
-    --accent-color: #ff69b4;
-    --button-color: #ff1493;
-    --button-hover: #ff007f;
-}
-        
-        [data-theme="dpink"] {
-    --bg-primary: #1a121a;
-    --bg-secondary: #2d1f2d;
-    --bg-tertiary: #3d2b3d;
-    --text-primary: #ffd9ec;
-    --accent-color: #ff80ab;
-    --button-color: #ff4081;
-    --button-hover: #f50057;
+check_root() {
+    if [ "$(id -u)" != "0" ]; then
+        echo -e "${PINK}Error: This script must be run as root.${NC}"
+        exit 1
+    fi
 }
 
-[data-theme="space"] {
-    --bg-primary: #0B0B1A;
-    --bg-secondary: #1A1A2E;
-    --bg-tertiary: #202040;
-    --text-primary: #E8E8E8;
-    --accent-color: #7B68EE;
-    --button-color: #6A5ACD;
-    --button-hover: #483D8B;
+enable_wireless_adb() {
+    local port=${1:-5555} 
+    echo "$port" | grep -qE '^[0-9]+$'
+    if [ $? -ne 0 ] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${PINK}Error: Invalid port number.${NC}"
+        exit 1
+    fi
+
+    setprop service.adb.tcp.port "$port"
+    stop adbd
+    start adbd
+    echo -e "${GREEN}Wireless ADB enabled on port $port.${NC}"
+    show_default_gateway
 }
 
+show_default_gateway() {
+    # Get the current ADB TCP port
+    local port=$(getprop service.adb.tcp.port)
+    
+    # Check if wireless ADB is enabled or disabled
+    if [ "$port" -eq -1 ]; then
+        echo -e "${PINK}Wireless ADB is disabled.${NC}"
+        return  # Exit the function early if wireless ADB is disabled
+    fi
 
-[data-theme="forest"] {
-    --bg-primary: #1b2819;
-    --bg-secondary: #2a3c26;
-    --bg-tertiary: #3b4f35;
-    --text-primary: #e8f5e4;
-    --accent-color: #90be6d;
-    --button-color: #6b9c3d;
-    --button-hover: #557b31;
+    # Fetch the local IP addresses (excluding 127.0.0.1)
+    ips=$(ip -f inet addr show | grep -Eo 'inet [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | awk '{print $2}' | grep -v '^127\.0\.0\.1$')
+    
+    if [ -n "$ips" ]; then
+        echo -e "${PINK}The following commands can be used to connect wirelessly:${NC}"
+        for ip in $ips; do
+            echo -e "${GREEN}  adb connect $ip:$port${NC}"
+        done
+    else
+        echo -e "${PINK}No usable IP addresses found. Ensure your device is connected to a network.${NC}"
+    fi
+}
+disable_wireless_adb() {
+    setprop service.adb.tcp.port -1
+    stop adbd
+    start adbd
+    echo -e "${GREEN}Wireless ADB disabled.${NC}"
 }
 
- [data-theme="ocean"] {
-    --bg-primary: #0a192f;
-    --bg-secondary: #172a45;
-    --bg-tertiary: #243b55;
-    --text-primary: #e6f1ff;
-    --accent-color: #64ffda;
-    --button-color: #00b4d8;
-    --button-hover: #0096c7;
+check_wireless_adb_status() {
+    # Check current wireless ADB status
+    port=$(getprop service.adb.tcp.port)
+    
+    if [ "$port" != "-1" ] && [ -n "$port" ]; then
+        echo -e "${GREEN}Wireless ADB is enabled on port $port.${NC}"
+        show_default_gateway 
+    else
+        echo -e "${PINK}Wireless ADB is disabled.${NC}"
+    fi
+    
+    # Check if wireless ADB is enabled on boot
+    module_path="/data/adb/modules/wadbd/service.sh"
+    if [ -f "$module_path" ]; then
+        boot_port=$(awk '/setprop service.adb.tcp.port/ {print $3}' "$module_path")
+        if [ -n "$boot_port" ]; then
+            echo -e "${GREEN}Wireless ADB on boot is enabled on port $boot_port.${NC}"
+        else
+            echo -e "${PINK}Wireless ADB on boot is not set correctly.${NC}"
+        fi
+    else
+        echo -e "${PINK}Wireless ADB on boot is disabled.${NC}"
+    fi
 }
 
+enable_on_boot() {
+    local port=${1:-5555}  # Default to port 5555 if no port is provided
+    # Check if the port is a valid number (between 1 and 65535)
+    echo "$port" | grep -qE '^[0-9]+$'
+    if [ $? -ne 0 ] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${PINK}Error: Invalid port number.${NC}"
+        exit 1
+    fi
 
+    local module_path="/data/adb/modules/wadbd"
+    mkdir -p "$module_path"
+    cat >"$module_path/service.sh" <<EOF
+#!/system/bin/sh
+setprop service.adb.tcp.port $port
+stop adbd
+start adbd
+exit
+EOF
+    chmod 644 "$module_path/service.sh"
+    echo -e "${GREEN}Wireless ADB will now be enabled on boot with port $port.${NC}"
+}
 
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            width: 100%;
-            overflow-y: auto;
-            transition: background-color 0.3s ease;
-        }
+disable_on_boot() {
+    local module_path="/data/adb/modules/wadbd"
+    if [ -f "$module_path/service.sh" ]; then
+        rm -f "$module_path/service.sh"
+        echo -e "${GREEN}Wireless ADB will no longer be enabled on boot.${NC}"
+    else
+        echo -e "${PINK}Wireless ADB on boot is already disabled.${NC}"
+    fi
+}
+###
+validate_adbkey_pub() {
+    local key_file="$1"
+    if ! head -n 1 "$key_file" | grep -qE '^QAAA'; then
+        echo -e "${PINK}Error: Invalid adbkey format. Expected a valid ADB public key.${NC}"
+        exit 1
+    fi
+    local key_length=$(head -n 1 "$key_file" | base64 -d 2>/dev/null | wc -c)
+    if [ "$key_length" -lt 256 ]; then
+        echo -e "${PINK}Error: Key length is too short to be a genuine adbkey.pub.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Validation successful.${NC}"
+}
 
-        header {
-            width: 100%;
-            padding: 20px;
-            background-color: var(--bg-secondary);
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+import_adb_key() {
+    local key_file="$1"
+    local adb_keys_file="/data/misc/adb/adb_keys"
 
-        header h1 {
-            margin: 0;
-            font-size: 22px;
-            color: var(--accent-color);
-            user-select: none;
-        }
+    # Check if the key file exists
+    if [ ! -f "$key_file" ]; then
+        echo -e "${PINK}Error: File not found at $key_file.${NC}"
+        exit 1
+    fi
 
-        .theme-toggle {
-            position: absolute;
-            right: 35px;
-            background-color: var(--button-color);
-            color: white;
-            border: none;
-            padding: 8px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 10px;
-        }
+    # Validate the adbkey.pub file
+    validate_adbkey_pub "$key_file"
+    if [ ! -f "$adb_keys_file" ]; then
+        mkdir -p "$(dirname "$adb_keys_file")"
+        touch "$adb_keys_file"
+        chmod 640 "$adb_keys_file"
+        chown 1000:2000 "$adb_keys_file"
+    fi
+    
+if grep -qFf "$key_file" "$adb_keys_file"; then
+    echo -e "${PINK}Key is already present in adb_keys.${NC}"
+else
+    cat "$key_file" >>"$adb_keys_file"
+    echo "" >>"$adb_keys_file"  
+    echo -e "${GREEN}Key imported successfully to adb_keys.${NC}"
+fi
+}
 
-        .container {
-            width: 90%;
-            max-width: 500px;
-            margin: 20px auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            flex: 1;
-            padding-bottom: 80px;
-        }
+SIGNATURE=$(echo "ADB_KEYS_BACKUP" | sha256sum | cut -d' ' -f1)
 
-        .card {
-            background-color: var(--bg-secondary);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            transform: translateZ(0);
-            transition: background-color 0.3s ease;
-        }
+backup_adb_keys() {
+    local backup_path=$1
+    if [ -z "$backup_path" ]; then
+        echo -e "${PINK}Error: No backup path provided.${NC}"
+        exit 1
+    fi
+    echo -n "$SIGNATURE" > "$backup_path"
+    cat /data/misc/adb/adb_keys >> "$backup_path"
+    echo -e "${GREEN}ADB keys backed up to $backup_path.${NC}"
+}
 
-        .card h2 {
-            font-size: 18px;
-            color: var(--accent-color);
-            margin-bottom: 15px;
-            user-select: none;
-        }
+restore_adb_keys() {
+    local backup_path=$1
+    if [ -z "$backup_path" ]; then
+        echo -e "${PINK}Error: No backup file provided.${NC}"
+        exit 1
+    fi
+    if [ ! -f "$backup_path" ]; then
+        echo -e "${PINK}Error: Backup file not found at $backup_path.${NC}"
+        exit 1
+    fi
+    local file_signature=$(head -c 64 "$backup_path")
+    if [ "$file_signature" != "$SIGNATURE" ]; then
+        echo -e "${PINK}Error: Invalid signature. Restoration aborted.${NC}"
+        exit 1
+    fi
+    tail -c +65 "$backup_path" > /data/misc/adb/adb_keys
+    chmod 640 /data/misc/adb/adb_keys
+    chown 1000:2000 /data/misc/adb/adb_keys
+    echo -e "${GREEN}ADB keys restored successfully from $backup_path.${NC}"
+}
+check_root
+if [ "$#" -lt 1 ]; then
+    usage
+fi
 
-        .input-group {
-            margin-bottom: 15px;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 14px;
-            margin-bottom: 5px;
-            user-select: none;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            background-color: var(--bg-tertiary);
-            color: var(--text-primary);
-            box-sizing: border-box;
-        }
-
-        .button-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        button {
-            background-color: var(--button-color);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            font-size: 14px;
-            cursor: pointer;
-            border-radius: 5px;
-            flex: 1 1 45%;
-            touch-action: manipulation;
-            user-select: none;
-            transition: background-color 0.3s ease;
-        }
-
-        button:active {
-            background-color: var(--button-hover);
-            transform: translateY(1px);
-        }
-
-        .output {
-            background-color: var(--bg-tertiary);
-            color: var(--text-primary);
-            padding: 15px;
-            border-radius: 5px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            overflow: auto;
-            height: 150px;
-        }
-
-        footer {
-            width: 100%;
-            background-color: var(--bg-secondary);
-            padding: 20px 0;
-            text-align: center;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.2);
-            position: fixed;
-            bottom: 0;
-            z-index: 100;
-        }
-
-        footer img {
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .info-section {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: var(--bg-tertiary);
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            color: var(--text-primary);
-            transform: translateZ(0);
-        }
-
-        .info-section h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            color: var(--accent-color);
-            user-select: none;
-        }
-
-        .info-section p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Wireless ADB Manager</h1>
-        <button class="theme-toggle" onclick="toggleTheme()">Theme</button>
-    </header>
-    <main class="container">
-        <div class="card">
-            <h2>Set Port</h2>
-            <div class="input-group">
-                <label for="port">Enter Wireless ADB Port (default: 5555)</label>
-                <input type="number" id="port" placeholder="5555" min="1" max="65535">
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Actions</h2>
-            <div class="button-container">
-                <button onclick="executeCommand('on')">Enable Wireless ADB</button>
-                <button onclick="executeCommand('off')">Disable Wireless ADB</button>
-                <button onclick="executeCommand('status')">Show Wireless ADB Status</button>
-                <button onclick="executeCommand('enable-on-boot')">Enable Wireless ADB on Boot</button>
-                <button onclick="executeCommand('disable-on-boot')">Disable Wireless ADB on Boot</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Output</h2>
-            <div class="output" id="output">Output will be displayed here...</div>
-        </div>
-
-        <div class="info-section" id="device-info">
-            <h3>Device Information</h3>
-            <p id="device-codename">Device Codename: Loading...</p>
-            <p id="device-name">Device Name: Loading...</p>
-            <p id="android-version">Android Version: Loading...</p>
-            <p id="build-number">Build Number: Loading...</p>
-            <p id="kernel-version">Kernel Version: Loading...</p>
-            <p id="usb-debugging">USB Debugging: Loading...</p>
-        </div>
-    </main>
-    <footer>
-        <img src="github.png" alt="GitHub" onclick="openLink('https://github.com/rhythmcache')">
-        <img src="telegram.png" alt="Telegram" onclick="openLink('https://ximistuffschat.t.me')">
-    </footer>
-
-    <script>
-        let callbackCounter = 0;
-        const themes = [
-    'dark', 
-    'amoled',
-    'light', 
-    'pink', 
-    'blackpink',
-    'dpink',
-    'space',
-    'forest',
-    'ocean',
-];
-        let currentThemeIndex = localStorage.getItem('themeIndex') ? parseInt(localStorage.getItem('themeIndex')) : 0;
-
-        function setTheme(index) {
-            const theme = themes[index];
-            document.body.setAttribute('data-theme', theme === 'dark' ? '' : theme);
-            localStorage.setItem('themeIndex', index);
-        }
-
-        function toggleTheme() {
-            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-            setTheme(currentThemeIndex);
-        }
-        setTheme(currentThemeIndex);
-
-        function getUniqueCallbackName(base) {
-            return `${base}_callback_${Date.now()}_${callbackCounter++}`;
-        }
-
-        function stripAnsiCodes(text) {
-            return text.replace(
-                /[\u001b\u009b][[()\]#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-                ''
-            );
-        }
-
-        async function exec(command, options = {}) {
-            return new Promise((resolve, reject) => {
-                const callbackName = getUniqueCallbackName('exec');
-                window[callbackName] = (errno, stdout, stderr) => {
-                    resolve({ errno, stdout, stderr });
-                    delete window[callbackName];
-                };
-
-                try {
-                    ksu.exec(command, JSON.stringify(options), callbackName);
-                } catch (error) {
-                    reject(error);
-                    delete window[callbackName];
-                }
-            });
-        }
-
-        async function executeCommand(action) {
-            const outputDiv = document.getElementById('output');
-            const port = document.getElementById('port').value || '5555';
-            outputDiv.textContent = 'Executing... Please wait.';
-
-            try {
-                let command = '';
-                if (action === 'on') {
-                    command = `wadbd on ${port}`;
-                } else if (action === 'enable-on-boot') {
-                    command = `wadbd enable-on-boot ${port}`;
-                } else if (action === 'off') {
-                    command = 'wadbd off';
-                } else if (action === 'disable-on-boot') {
-                    command = 'wadbd disable-on-boot';
-                } else if (action === 'status') {
-                    command = 'wadbd status';
-                }
-
-                const { stdout, stderr } = await exec(command);
-                outputDiv.textContent = stripAnsiCodes(stdout || stderr || 'No output.');
-            } catch (error) {
-                outputDiv.textContent = 'Error: Could not execute the command.';
-            }
-        }
-
-        function openLink(url) {
-            exec(`am start -a android.intent.action.VIEW -d "${url}"`);
-        }
-
-        async function fetchDeviceInfo() {
-            try {
-                const { stdout: deviceCodename } = await exec('getprop ro.product.device');
-                const { stdout: deviceName } = await exec('getprop ro.product.model');
-                const { stdout: androidVersion } = await exec('getprop ro.build.version.release');
-                const { stdout: buildNumber } = await exec('getprop ro.build.display.id');
-                const { stdout: kernelVersion } = await exec('uname -r');
-                const { stdout: usbDebugging } = await exec('settings get global adb_enabled');
-
-                document.getElementById('device-codename').textContent = `Device Codename: ${deviceCodename.trim()}`;
-                document.getElementById('device-name').textContent = `Device Name: ${deviceName.trim()}`;
-                document.getElementById('android-version').textContent = `Android Version: ${androidVersion.trim()}`;
-                document.getElementById('build-number').textContent = `Build Number: ${buildNumber.trim()}`;
-                document.getElementById('kernel-version').textContent = `Kernel Version: ${kernelVersion.trim()}`;
-                document.getElementById('usb-debugging').textContent = `USB Debugging: ${usbDebugging.trim() === '1' ? 'Enabled' : 'Disabled'}`;
-            } catch (error) {
-                console.error('Failed to fetch device info:', error);
-            }
-        }
-
-        window.onload = fetchDeviceInfo;
-    </script>
-</body>
-</html>
+case "$1" in
+ --import-key)
+        if [ -z "$2" ]; then
+            echo -e "${PINK}Error: Path to adbkey.pub is required.${NC}"
+            usage
+        fi
+        import_adb_key "$2"
+        ;;
+    on)
+        enable_wireless_adb "$2"  # If no port is provided, default to 5555
+        ;;
+    off)
+        disable_wireless_adb
+        ;;
+    status)
+        check_wireless_adb_status
+        ;;
+    enable-on-boot)
+        enable_on_boot "$2" 
+        ;;
+    disable-on-boot)
+        disable_on_boot
+        ;;
+        --backup)
+        backup_adb_keys "$2"
+        ;;
+    --restore)
+        restore_adb_keys "$2"
+        ;;
+    *)
+        usage
+        ;;
+esac

@@ -17,6 +17,7 @@ Commands:
   wadbd status                - Show the status of wireless ADB.
   wadbd enable-on-boot <port> - Enable wireless ADB on boot with the specified port.
   wadbd disable-on-boot       - Disable wireless ADB on boot.
+wadbd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt.
 
 Note: If you don't specify a port, it will use the default port 5555.
 ```
@@ -51,6 +52,9 @@ Note: If you don't specify a port, it will use the default port 5555.
 ### `wadbd disable-on-boot`
 - Disables wirelss adbd on boot
 
+#### `wadbd --import-key <path to adbkey.pub>
+- If your device is not prompting to authorize ADB for some reason, you can use this to directly import ADB keys to authorize your device.
+- This might not work on all devices.
 
 ---
 ## License

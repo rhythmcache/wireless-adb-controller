@@ -27,8 +27,8 @@ Note: If you don't specify a port, it will use the default port 5555.
 ## WebUI Screenshot
 
 <div style="display: flex; justify-content: center; align-items: center;">
-  <img src="https://github.com/rhythmcache/wireless-adb-controller/raw/main/Screenshot_20241224-232657.png" alt="WebUI Screenshot" width="65%">
-  <img src="https://github.com/rhythmcache/wireless-adb-controller/raw/main/Screenshot_20241227-081225_KernelSU.png" alt="KernelSU Screenshot" width="65%">
+  <img src="https://github.com/rhythmcache/wireless-adb-controller/raw/main/Screenshot_20241224-232657.png" alt="WebUI Screenshot" width="45%">
+  <img src="https://github.com/rhythmcache/wireless-adb-controller/raw/main/Screenshot_20241227-081225_KernelSU.png" alt="KernelSU Screenshot" width="45%">
 </div>
 
 

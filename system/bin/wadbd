@@ -14,7 +14,7 @@ usage() {
     echo -e "  $cmd status                - Show the status of wireless ADB."
     echo -e "  $cmd enable-on-boot <port> - Enable wireless ADB on boot with the specified port."
     echo -e "  $cmd disable-on-boot       - Disable wireless ADB on boot."
-    echo -e "  $cmd --import-key <path>    - Import an adbkey.pub file to authorize ADB without prompt."
+    echo -e "  $cmd --import-key <path>   - Import an adbkey.pub file to authorize ADB without prompt."
     echo -e "\nNote: If you don't specify a port, it will use the default port 5555."
     exit 1
 }
@@ -128,56 +128,50 @@ disable_on_boot() {
         echo -e "${PINK}Wireless ADB on boot is already disabled.${NC}"
     fi
 }
-#####################################
+###
 validate_adbkey_pub() {
     local key_file="$1"
-    
-    if ! grep -qE '^ssh-rsa [A-Za-z0-9+/=]+$' "$key_file"; then
-        echo -e "${PINK}Error: Invalid adbkey.pub format. Expected a valid SSH-RSA key.${NC}"
+    if ! head -n 1 "$key_file" | grep -qE '^QAAA'; then
+        echo -e "${PINK}Error: Invalid adbkey format. Expected a valid ADB public key.${NC}"
         exit 1
     fi
-
-    # Decode and check the length of the key (requires base64)
-    local key_length
-    key_length=$(grep '^ssh-rsa ' "$key_file" | awk '{print $2}' | base64 -d 2>/dev/null | wc -c)
-    if [ "$key_length" -lt 128 ]; then
+    local key_length=$(head -n 1 "$key_file" | base64 -d 2>/dev/null | wc -c)
+    if [ "$key_length" -lt 256 ]; then
         echo -e "${PINK}Error: Key length is too short to be a genuine adbkey.pub.${NC}"
         exit 1
     fi
-    echo -e "${GREEN}Validation successful. adbkey.pub is genuine.${NC}"
+    echo -e "${GREEN}Validation successful.${NC}"
 }
 
 import_adb_key() {
     local key_file="$1"
     local adb_keys_file="/data/misc/adb/adb_keys"
 
-    # Check if the file exists
+    # Check if the key file exists
     if [ ! -f "$key_file" ]; then
         echo -e "${PINK}Error: File not found at $key_file.${NC}"
         exit 1
     fi
 
-    # Validate the adbkey.pub file structure
+    # Validate the adbkey.pub file
     validate_adbkey_pub "$key_file"
-
-    # Create adb_keys if it doesn't exist
     if [ ! -f "$adb_keys_file" ]; then
         mkdir -p "$(dirname "$adb_keys_file")"
         touch "$adb_keys_file"
         chmod 640 "$adb_keys_file"
         chown 1000:2000 "$adb_keys_file"
     fi
-
-    # Check if the key is already imported
-    if grep -qFf "$key_file" "$adb_keys_file"; then
-        echo -e "${GREEN}Key is already present in adb_keys.${NC}"
-    else
-        cat "$key_file" >>"$adb_keys_file"
-        echo -e "${GREEN}Key imported successfully to adb_keys.${NC}"
-    fi
+    
+if grep -qFf "$key_file" "$adb_keys_file"; then
+    echo -e "${PINK}Key is already present in adb_keys.${NC}"
+else
+    cat "$key_file" >>"$adb_keys_file"
+    echo "" >>"$adb_keys_file"  
+    echo -e "${GREEN}Key imported successfully to adb_keys.${NC}"
+fi
 }
 
-####################################
+###
 
 check_root
 

@@ -1,3 +1,4 @@
+
 #!/system/bin/sh
 # wadbd by @rhythmcache
 
@@ -42,6 +43,7 @@ enable_wireless_adb() {
     start adbd
     echo -e "${GREEN}Wireless ADB enabled on port $port.${NC}"
     show_default_gateway
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADBD Enabled on port $port !!'" > /dev/null 2>&1
 }
 
 show_default_gateway() {
@@ -111,13 +113,22 @@ enable_on_boot() {
     mkdir -p "$module_path"
     cat >"$module_path/service.sh" <<EOF
 #!/system/bin/sh
+
 setprop service.adb.tcp.port $port
 stop adbd
 start adbd
+
+while [ "\$(getprop sys.boot_completed)" != "1" ]; do
+    sleep 5
+done
+
+su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADBD Enabled on port $port !!'" > /dev/null 2>&1
+
 exit
 EOF
     chmod 644 "$module_path/service.sh"
     echo -e "${GREEN}Wireless ADB will now be enabled on boot with port $port.${NC}"
+su -lp 2000 -c "cmd notification post -S bigtext -t 'WADBD' 'Tag' 'Wireless ADB on boot will now be Enabled on port $port !!'" > /dev/null 2>&1
 }
 
 disable_on_boot() {
